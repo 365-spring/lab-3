@@ -19,6 +19,7 @@ int main(int argc, char *argv[])
     fd_set fds;
     struct timeval tv;
 
+	// 1 Create a listening socket for the server
     // initialize variables
     memset((void *) &hint, 0, sizeof(hint));
 
@@ -43,6 +44,7 @@ int main(int argc, char *argv[])
     rval = listen(lfd, LISTEN_QUEUE);
     exit_msg(rval < 0, "listen() error");
 
+	// 2 Detect read activity on the listen socket, e.g., using select()
     // wait for connection
     timeout = 0;
     do {
@@ -55,6 +57,7 @@ int main(int argc, char *argv[])
         rval = select(lfd+1, &fds, NULL, NULL, &tv);
         exit_msg(rval < 0, "select() error");
 
+		// 3 If there is activity, accept() the connection and fork()
         if (rval == 0) {
             timeout++;
         } else {
@@ -62,6 +65,15 @@ int main(int argc, char *argv[])
             cfd = accept(lfd, NULL, NULL);
             exit_msg(cfd < 0, "accept() error");
             printf("%5d: Accepted connection\n", getpid());
+
+			// 4 In the server:
+			// nothing here
+			/*
+			Close the resources we do not need, like the connected fd the child will service
+			Occasionally and opportunistically reap zombie children using waitpid()
+			Go back to (2) and service more clients.
+
+			*/
 
             if ((pid = fork()) == 0) {
             // in child
