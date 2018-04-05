@@ -26,10 +26,10 @@ int main(int argc, char *argv[])
     hint.ai_family = AF_UNSPEC;
     hint.ai_socktype = SOCK_STREAM;   // TCP info
     hint.ai_flags = AI_PASSIVE;       // use my IP address
-    
+
     getaddrinfo(NULL, "8090", &hint, &aip);
     for (rp = aip; rp != NULL; rp = rp->ai_next) {
-        lfd = socket(rp->ai_family, 
+        lfd = socket(rp->ai_family,
                      rp->ai_socktype,
                      rp->ai_protocol);
         if (lfd == -1)
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
             close(cfd);
         }
         waitpid(-1, NULL, WNOHANG);
-    } while (timeout < 5);
+    } while (timeout < 200);
 
     printf("%5d: Server Exiting\n", getpid());
     freeaddrinfo(aip);
@@ -107,7 +107,7 @@ void handle_connection(int fd)
             fprintf(stderr, "connection timeout");
             return;
         }
-        
+
         // do the read
         while ((len = read(fd, buf, sizeof(buf))) > 0) {
             // do work
@@ -119,4 +119,3 @@ void handle_connection(int fd)
     } while (0);
     return;
 }
-

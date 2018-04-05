@@ -40,7 +40,19 @@ int main(int argc, char *argv[])
         // prompt user for input
         printf("%5d > ", pid);
         fflush(stdout);
+		/*
+		get the url from the get request:
+		GET /page_name.html HTTP/1.0
+		Host: blue.cs.sonoma.edu:3333
+		Accept: text/html, text/plain, text/sgml, text/css, application/xhtml+xml, *\/*;q=0.01
+		Accept-Encoding: gzip, bzip2
+		Accept-Language: en
+		User-Agent: Lynx/2.8.9dev.4 libwww-FM/2.14 SSL-MM/1.4.1 OpenSSL/1.0.1k-fips
 
+		get url from the request
+		use getaddrinfo() to get the server from the url found
+
+		*/
         if ((len = read(0, buf, sizeof(buf))) > 0) {
             if (buf[0] == '.') done = 1;
 
@@ -62,4 +74,3 @@ int main(int argc, char *argv[])
     freeaddrinfo(aip);
     return 0;
 }
-
