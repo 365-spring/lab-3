@@ -53,11 +53,12 @@ int main(int argc, char *argv[])
 		use getaddrinfo() to get the server from the url found
 
 		*/
+		// buf is the get request
         if ((len = read(0, buf, sizeof(buf))) > 0) {
             if (buf[0] == '.') done = 1;
 
             // send request to server
-            printf("%5d write: ", pid);
+            printf("%5d send to server: ", pid);
             fwrite(buf, len, 1, stdout);
             fflush(stdout);
 
@@ -65,7 +66,7 @@ int main(int argc, char *argv[])
 
             // wait for response
             if ((len = read(cfd, buf, sizeof(buf))) > 0) {
-                printf("%5d read: ", pid);
+                printf("%5d got from server: ", pid);
                 fwrite(buf, len, 1, stdout);
                 fflush(stdout);
             }
