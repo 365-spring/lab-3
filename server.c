@@ -128,6 +128,7 @@ void handle_connection(int fd)
 
         // do the read
 		// Handle the client’s connection using read(), write(), fread(), fwrite(), etc.
+		// buf is the data from the client
         while ((len = read(fd, buf, sizeof(buf))) > 0) {
             // do work
             for(i = 0; i < len; i++) {
