@@ -73,10 +73,16 @@ int main(int argc, char *argv[])
 			Occasionally and opportunistically reap zombie children using waitpid()
 			Go back to (2) and service more clients.
 
+			get rid of cfd
+			if too many zombie children
+				reap them using waitpid()
+			go back to top of loop
+
 			*/
 
             if ((pid = fork()) == 0) {
-            // in child
+	            // in child
+				// Close the resources we don’t need, like the listen fd
                 close(lfd);
                 printf("%5d: Handling connection.\n", getpid());
                 handle_connection(cfd);
@@ -121,6 +127,7 @@ void handle_connection(int fd)
         }
 
         // do the read
+		// Handle the client’s connection using read(), write(), fread(), fwrite(), etc.
         while ((len = read(fd, buf, sizeof(buf))) > 0) {
             // do work
             for(i = 0; i < len; i++) {
