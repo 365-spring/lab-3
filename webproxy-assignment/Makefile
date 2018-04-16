@@ -23,3 +23,6 @@ $(BINS):
 clean:
 	rm -f *.o $(BINS)
 
+run:
+	./proxy 3456
+
