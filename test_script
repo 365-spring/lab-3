@@ -1,0 +1,6 @@
+#!/bin/bash
+
+make clean
+make
+x-terminal-emulator -e ./server
+x-terminal-emulator -e ./client
