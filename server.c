@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
             // accept
             cfd = accept(lfd, NULL, NULL);
             exit_msg(cfd < 0, "accept() error");
+
             printf("%5d: Accepted connection\n", getpid());
 
 			// 4 In the server:
@@ -80,6 +81,7 @@ int main(int argc, char *argv[])
 
 			*/
 
+            // only child sees 0
             if ((pid = fork()) == 0) {
 	            // in child
 				// Close the resources we don’t need, like the listen fd
