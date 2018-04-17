@@ -7,6 +7,26 @@
 #include <string.h>
 #include "helper.h"
 
+int findThirdForwordSlash(char get[])
+{
+	// assume get has 3 '/' in it
+	int count = 0;
+	for(int i = 0; i < strlen(get); i++)
+	{
+		if(get[i] == '/')
+		{
+			count++;
+			if(count == 3)
+				return i;
+		}
+	}
+}
+int findNullCharacter(char get[])
+{
+	int i = 0;
+	for(; get[i] != '\0'; i++){}
+	return i;
+}
 int main(int argc, char *argv[])
 {
     int cfd, pid, len, done;
@@ -35,11 +55,105 @@ int main(int argc, char *argv[])
         close(cfd);
     }
     exit_msg(rp == NULL, "Error trying to connect");
+	//len = read(0, buf, sizeof(buf));
+	char get[1024];
+	//memset(get, '\0', 1024);
 
-    do {
+	char host[1024];
+	//memset(host, '\0', 1024);
+
+	char accept[1024];
+	//memset(accept, '\0', 1024);
+
+	char accept_encoding[1024];
+	//memset(accept_encoding, '\0', 1024);
+
+	char accept_language[1024];
+	//memset(accept_language, '\0', 1024);
+
+	char user_agent[1024];
+	//memset(user_agent, '\0', 1024);
+
+	for(int i = 0; i < 6; i++)
+	{
+		if (( len=read(0, buf, sizeof(buf)) ) > 0)
+		{
+
+			//printf("\n%d ", i);
+			//fwrite(buf, len, 1, stdout);
+			//printf("\n%s\n", buf);
+			switch(i)
+			{
+				case 0:
+					memcpy(get, buf, 1024);
+					break;
+				case 1:
+					memcpy(host, buf, 1024);
+
+					break;
+				case 2:
+					memcpy(accept, buf, 1024);
+
+					break;
+				case 3:
+					memcpy(accept_encoding, buf, 1024);
+
+					break;
+				case 4:
+					memcpy(accept_language, buf, 1024);
+
+					break;
+				case 5:
+					memcpy(user_agent, buf, 1024);
+
+					break;
+				default:
+					break;
+
+			}
+			/*for(int i = 0; i < len; i++)
+			{
+				printf("%c", buf[i]);
+			}*/
+			memset(buf, '\0', 1024);
+			//fflush(stdout);
+
+			write(cfd, buf, len);
+		}
+
+	}
+	printf("\n%s\n", get);
+	printf("\n%s\n", host);
+	printf("\n%s\n", accept);
+	printf("\n%s\n", accept_encoding);
+	printf("\n%s\n", accept_language);
+	printf("\n%s\n", user_agent);
+	printf("\n");
+
+	// get from the third forward slash to \0 in get
+	int third_forward_slash = findThirdForwordSlash(get);
+
+	int null_char = findNullCharacter(get);
+
+	char stripped_get[1024];
+	memset(stripped_get, '\0', 1024);
+	
+	char get_word[] = "GET ";
+	memcpy(stripped_get, get_word, 4);
+
+	memcpy(stripped_get + 4,
+		   get 			+ third_forward_slash,
+		   null_char 	- third_forward_slash);
+
+	printf("\n%s\n", stripped_get);
+
+	return 0;
+	//fflush(stdout);
+
+    //do {
         // prompt user for input
-        printf("%5d > ", pid);
-        fflush(stdout);
+        //printf("%5d > ", pid);
+        //fflush(stdout);
 		/*
 		get the url from the get request:
 		GET /page_name.html HTTP/1.0
@@ -54,24 +168,27 @@ int main(int argc, char *argv[])
 
 		*/
 		// buf is the get request
-        if ((len = read(0, buf, sizeof(buf))) > 0) {
-            if (buf[0] == '.') done = 1;
+        //if ((len = read(0, buf, sizeof(buf))) > 0) {
+        //    if (buf[0] == '.') done = 1;
 
             // send request to server
-            printf("%5d send to server: ", pid);
-            fwrite(buf, len, 1, stdout);
-            fflush(stdout);
+            //printf("%5d send to server: ", pid);
+			//printf("send to server: ", pid);
 
-            write(cfd, buf, len);
+            //fwrite(buf, len, 1, stdout);
+            //fflush(stdout);
+
+        //    write(cfd, buf, len);
 
             // wait for response
+			/*
             if ((len = read(cfd, buf, sizeof(buf))) > 0) {
                 printf("%5d got from server: ", pid);
                 fwrite(buf, len, 1, stdout);
                 fflush(stdout);
-            }
-        }
-    } while (!done);
+            }*/
+        //}
+    //} while (!done);
     freeaddrinfo(aip);
     return 0;
 }
