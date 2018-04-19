@@ -347,7 +347,13 @@ void server()
     freeaddrinfo(aip);
     return 0;
 }
+/*
+set up socket for listening
+wait for connection to be ready(to server)
+if there is activity accept and fork
+write activity from fork to buffer at client(number in ./proxy number)
 
+*/
 void handle_connection(int fd)
 {
     /*
@@ -396,10 +402,10 @@ void handle_connection(int fd)
     } while (0);
 }
 
-void makeConnection(int cfd,
-                    int pid,
-                    int len,
-                    int done,
+void makeConnection(int* cfd,
+                    int* pid,
+                    int* len,
+                    int* done,
                     struct addrinfo hint,
                     struct addrinfo* aip,
                     struct addrinfo* rp,
@@ -410,8 +416,8 @@ void makeConnection(int cfd,
     //char buf[1024];
 
     // initialize variables
-    pid = getpid();
-    done = 0;
+    *pid = getpid();
+    *done = 0;
     memset((void *) &hint, 0, sizeof(hint));
 
     // hints will help addrinfo to populate addr in a specific way
@@ -421,16 +427,116 @@ void makeConnection(int cfd,
 
     getaddrinfo(NULL, "8090", &hint, &aip);
     for (rp = aip; rp != NULL; rp = rp->ai_next) {
-        cfd = socket(rp->ai_family,
+        *cfd = socket(rp->ai_family,
                  rp->ai_socktype,
                  rp->ai_protocol);
-        if (cfd == -1)
+        if (*cfd == -1)
             continue;
-        if (connect(cfd, rp->ai_addr, rp->ai_addrlen) != -1)
+        if (connect(*cfd, rp->ai_addr, rp->ai_addrlen) != -1)
             break; // success!
-        close(cfd);
+        close(*cfd);
     }
     exit_msg(rp == NULL, "Error trying to connect");
+}
+void setListen(int* rval, int* lfd)
+{
+    *rval = listen(*lfd, LISTEN_QUEUE);
+    exit_msg(*rval < 0, "listen() error");
+}
+
+void readFromClient()
+{
+    //len = read(0, buf, sizeof(buf));
+    char get[1024];
+    //memset(get, '\0', 1024);
+
+    char host[1024];
+    //memset(host, '\0', 1024);
+
+    char accept[1024];
+    //memset(accept, '\0', 1024);
+
+    char accept_encoding[1024];
+    //memset(accept_encoding, '\0', 1024);
+
+    char accept_language[1024];
+    //memset(accept_language, '\0', 1024);
+
+    char user_agent[1024];
+    //memset(user_agent, '\0', 1024);
+
+    for(int i = 0; i < 6; i++)
+    {
+        if (( len=read(0, buf, sizeof(buf)) ) > 0)
+        {
+
+            //printf("\n%d ", i);
+            //fwrite(buf, len, 1, stdout);
+            //printf("\n%s\n", buf);
+            switch(i)
+            {
+                case 0:
+                    memcpy(get, buf, 1024);
+                    break;
+                case 1:
+                    memcpy(host, buf, 1024);
+
+                    break;
+                case 2:
+                    memcpy(accept, buf, 1024);
+
+                    break;
+                case 3:
+                    memcpy(accept_encoding, buf, 1024);
+
+                    break;
+                case 4:
+                    memcpy(accept_language, buf, 1024);
+
+                    break;
+                case 5:
+                    memcpy(user_agent, buf, 1024);
+
+                    break;
+                default:
+                    break;
+
+            }
+            /*for(int i = 0; i < len; i++)
+            {
+                printf("%c", buf[i]);
+            }*/
+            memset(buf, '\0', 1024);
+            //fflush(stdout);
+
+            write(cfd, buf, len);
+        }
+
+    }
+    printf("\n%s\n", get);
+    printf("\n%s\n", host);
+    printf("\n%s\n", accept);
+    printf("\n%s\n", accept_encoding);
+    printf("\n%s\n", accept_language);
+    printf("\n%s\n", user_agent);
+    printf("\n");
+
+    // get from the third forward slash to \0 in get
+    int third_forward_slash = findThirdForwordSlash(get);
+
+    int null_char = findNullCharacter(get);
+
+    char stripped_get[1024];
+    memset(stripped_get, '\0', 1024);
+    
+    char get_word[] = "GET ";
+    memcpy(stripped_get, get_word, 4);
+
+    memcpy(stripped_get + 4,
+           get          + third_forward_slash,
+           null_char    - third_forward_slash);
+
+    printf("\n%s\n", stripped_get);
 }
 //
 // Main
@@ -492,8 +598,13 @@ int main(int argc, char *argv[])
         printf("Using port [%s]\n", port); fflush(stdout);
     }
 
-    client(port_);
-    server();
+    // make a connection to port_
+    // read from buffer(assume at this point data will be in the buffer from wget)
+
+    connection()
+    readFromClient()
+    //client(port_);
+    //server();
     /*
 
 
