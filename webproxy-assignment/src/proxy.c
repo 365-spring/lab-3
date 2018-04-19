@@ -14,7 +14,7 @@
 //
 // Globals and constants
 //
-static int verbose = 1;
+static int verbose = 0;
 #define CRLF                "\r\n"
 #define LISTEN_QUEUE        10
 #define CLIENT_TIMEOUT      5
@@ -187,9 +187,9 @@ void client(int port_number)
     printf("\n");
 
     // get from the third forward slash to \0 in get
-    int third_forward_slash = findThirdForwordSlash(get);
+    //int third_forward_slash = findThirdForwordSlash(get);
 
-    int null_char = findNullCharacter(get);
+    //int null_char = findNullCharacter(get);
 
     char stripped_get[1024];
     memset(stripped_get, '\0', 1024);
@@ -197,9 +197,9 @@ void client(int port_number)
     char get_word[] = "GET ";
     memcpy(stripped_get, get_word, 4);
 
-    memcpy(stripped_get + 4,
+    /*memcpy(stripped_get + 4,
            get          + third_forward_slash,
-           null_char    - third_forward_slash);
+           null_char    - third_forward_slash);*/
 
     printf("\n%s\n", stripped_get);
 
@@ -471,7 +471,8 @@ int main(int argc, char *argv[])
         //printf("%d", argv[1][i] - offset);
         port_number = 10 * port_number + (argv[1][i] - offset);
     }
-    printf("\n%d\n", port_number);
+    if(verbose)
+        printf("\n%d\n", port_number);
     //printf("%d", argv[1][0]);
 	/*for(int i = 0; i < argc; i++)
     {
@@ -479,8 +480,12 @@ int main(int argc, char *argv[])
 		if(character >= '0' && character <= '9')
 			sscanf(&argv[0][i], "%s %*s %d", port_buf, port_);
     }*/
-    printf("\ndone\n");
-    printf("%d\n", port_);
+    if(verbose)
+    {
+        printf("\ndone\n");
+        printf("%d\n", port_);
+    }
+    
     fflush(stdout);
     if (argc - optind != 1) {
         usage(argv[0]);
@@ -492,8 +497,8 @@ int main(int argc, char *argv[])
         printf("Using port [%s]\n", port); fflush(stdout);
     }
 
-    client(port_);
     server();
+    client(port_);
     /*
 
 
