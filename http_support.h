@@ -7,7 +7,8 @@
 #include <stdio.h>
 
 // seconds to timeout waiting for activity
-#define CLIENT_TIMEOUT    (5)
+//#define CLIENT_TIMEOUT    (5)
+#define CLIENT_TIMEOUT    (60)
 
 // listen() backlog
 #define LISTEN_QUEUE      (10)

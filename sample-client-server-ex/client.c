@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 
             // wait for response
             if ((len = read(cfd, buf, sizeof(buf))) > 0) {
-                printf("%5d read: ", pid);
+                printf("%5d read: \n", pid);
                 fwrite(buf, len, 1, stdout);
                 fflush(stdout);
             }

@@ -232,38 +232,29 @@ int main(int argc, char *argv[])
 //
 void handle_connection(int fd)
 {
-    int len, i, rval;
-    fd_set fds;
-    struct timeval tv;
-    char buf[1024];
-    
     http_req req;
     FILE *rx, *tx;
 
     exit_msg((fd < 0) || (fd > FD_SETSIZE), "bad fd");
     
-    // for streams with sockets, need one for read and one for write
-    rx = fdopen(fd, "r");
-    tx = fdopen(dup(fd), "w");
+        // for streams with sockets, need one for read and one for write
+        rx = fdopen(fd, "r");
+        tx = fdopen(dup(fd), "w");
 
-    init_req(&req);
-    http_get_request(rx, &req);
-    http_process_request(&req);
-    http_response(tx, &req);
-
-    // do the read
-    while ((len = read(fd, buf, sizeof(buf))) > 0) {
-        // do work
-        for(i = 0; i < len; i++) {
-            buf[i] = toupper(buf[i]);
-        }
-        write(fd, buf, len);
-    }
+    //while(1)
+    //{
+        
+        init_req(&req);
+        http_get_request(rx, &req);
+        http_process_request(&req);
+        http_response(tx, &req);
+    //}
 
     shutdown(fileno(rx), SHUT_RDWR);
     fclose(rx);
     fclose(tx);
     free_req(&req);
+
     return;
 
     /*int len, i, rval;

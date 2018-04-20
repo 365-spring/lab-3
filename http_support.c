@@ -103,6 +103,7 @@ int http_get_request(FILE *stream, http_req *req)
         // skip SP
         while (*ptr && isspace(*ptr))
             ptr++;
+
         // Request-URI
         val = strchr(ptr, ' ');
         if (!val)
@@ -113,6 +114,7 @@ int http_get_request(FILE *stream, http_req *req)
             req->status = BAD_REQUEST;
             return -1;
         }
+
         req->resource = malloc(len+1);
         if (req->resource == NULL) {
             req->status = INTERNAL_ERROR;
@@ -120,6 +122,8 @@ int http_get_request(FILE *stream, http_req *req)
         }
         strncpy(req->resource, ptr, len);
         req->resource[len] = '\0'; // make sure its null terminated
+
+
 
         // HTTP-Version present?
         if (strstr(ptr, "HTTP/"))
@@ -224,11 +228,13 @@ int http_process_request(http_req *req)
 
     // check that the requested path falls under the server root
     //   get rid of possible relative path trickery
+
     if ((fullpath = realpath(path, fullpath)) == NULL) {
         req->status = NOT_FOUND;
     } else if (strncmp(path, server_root, strlen(server_root)) != 0) {
         req->status = NOT_FOUND;
     }
+    
     if (fullpath)
         free(fullpath);
 
@@ -246,7 +252,12 @@ int http_process_request(http_req *req)
             req->status = NOT_FOUND;
         return 0;
     } else if (S_ISDIR(statbuf.st_mode)) {
+        if(req->status == OK)
+            printf("Yessfds\n");
+        if(req->method == GET)
+            printf("sdfdsf\n");
     // its a directory
+
         if (path[strlen(path)] != '/') {
             strncat(path, "/", sizeof(path) - strlen(path));
         }
