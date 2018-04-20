@@ -194,7 +194,7 @@ void handle_connection(int fd)
 
     exit_msg( (fd < 0) || (fd > FD_SETSIZE), "bad file descriptor");
 
-    tv.tv_sec = 5;
+    tv.tv_sec = 10;
     tv.tv_usec = 0;
 
     // read from client
