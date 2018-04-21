@@ -1,7 +1,3 @@
-#
-# Makefile for proxy
-#
-
 CC=gcc
 CFLAGS=-g -Wall
 LDFLAGS=
@@ -11,16 +7,11 @@ BINS=proxy
 
 all: $(BINS)
 
-proxy: proxy.o http_support.o
-proxy.o: proxy.c http_support.h
-http_support.o: http_support.c
+%: %.o
+	$(CC) $(LDFLAGS) $< -o $@
 
-$(BINS):
-	$(CC) $^ -o $@
-
-%.o:
+%.o: %.c
 	$(CC) $< -c $(CFLAGS) -o $@
 
 clean:
 	rm -f *.o $(BINS)
-
