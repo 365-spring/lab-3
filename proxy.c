@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
         // wait for a connection to be ready
         FD_ZERO(&fds);
         FD_SET(lfd, &fds);
-        tv.tv_sec = 20;
+        tv.tv_sec = 10;
         tv.tv_usec = 0;
 
         rval = select(lfd+1, &fds, NULL, NULL, &tv);
@@ -87,14 +87,12 @@ void handle_connection(int fd)
     int len, rval;
     fd_set fds;
     struct timeval tv;
-    char buf[1024*8];
-    char buf2[1024*8];
+    char buf[1024*2];
 
     exit_msg( (fd < 0) || (fd > FD_SETSIZE), "bad file descriptor");
 
-    //tv.tv_sec = 5;
     // Amount of time before connection timeout
-    tv.tv_sec = 60; // In seconds
+    tv.tv_sec = 20; // In seconds
     tv.tv_usec = 0; // In microseconds
 
     // read from client
@@ -111,8 +109,10 @@ void handle_connection(int fd)
             return;
         }
 
-        // do work
-        // buf contains the string from the user
+        // If the client sends data, read it into the buffer until it
+        // is done
+        if ((len = read(fd, buf, sizeof(buf))) > 0);
+        //printf("%s\n", buf);
 
         /*
         http://blue.cs.sonoma.edu:3333
@@ -130,8 +130,11 @@ void handle_connection(int fd)
         Host: blue.cs.sonoma.edu
         */
 
+        // String parsing
+
         struct addrinfo hints, *res;
         int sockfd;
+        char buf2[1024*2];
 
         // first, load up address structs with getaddrinfo():
 
@@ -139,13 +142,6 @@ void handle_connection(int fd)
         hints.ai_family = AF_UNSPEC;  // use IPv4 or IPv6, whichever
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
-
-        /*
-        int getaddrinfo(const char *node,     // e.g. "www.example.com" or IP
-                        const char *service,  // e.g. "http" or port number
-                        const struct addrinfo *hints,
-                        struct addrinfo **res);
-        */
 
         getaddrinfo("www.cs.sonoma.edu", "80", &hints, &res);
 
@@ -160,16 +156,16 @@ void handle_connection(int fd)
 
         // Send a message (get)
         // int send(int sockfd, const void *msg, int len, int flags);
-        char *msg = "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
-        len = strlen(msg);
-        send(sockfd, msg, len, 0);
-        recv(sockfd, buf, sizeof(buf), 0);
-        printf("%s\n", buf);
+        // Example input: "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
+        send(sockfd, buf, strlen(buf), 0);
+        recv(sockfd, buf2, sizeof(buf2), 0);
+        close(sockfd);
         
-        // do the read
-        while ((len = read(fd, buf2, sizeof(buf2))) > 0) {
-            write(fd, buf,  sizeof(buf));
-        }
+        write(fd, buf2,  sizeof(buf2));
+        FD_ZERO(&fds);
+
+
+        
     } while (0);
     return;
 }
