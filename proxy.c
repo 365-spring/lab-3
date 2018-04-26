@@ -87,12 +87,12 @@ void handle_connection(int fd)
     int len, rval;
     fd_set fds;
     struct timeval tv;
-    char buf[1024*2];
+    char buf[4096];
 
     exit_msg( (fd < 0) || (fd > FD_SETSIZE), "bad file descriptor");
 
     // Amount of time before connection timeout
-    tv.tv_sec = 20; // In seconds
+    tv.tv_sec = 30; // In seconds
     tv.tv_usec = 0; // In microseconds
 
     // read from client
@@ -112,7 +112,6 @@ void handle_connection(int fd)
         // If the client sends data, read it into the buffer until it
         // is done
         if ((len = read(fd, buf, sizeof(buf))) > 0);
-        //printf("%s\n", buf);
 
         /*
         http://blue.cs.sonoma.edu:3333
@@ -134,16 +133,114 @@ void handle_connection(int fd)
 
         struct addrinfo hints, *res;
         int sockfd;
-        char buf2[1024*2];
+        char buf2[2048];
+
+        // Check that our url length is 2048 or lower
+        if(len >= 2048)
+        {
+            char ERR[] = "Request is too long\n";
+            write(fd, ERR,  strlen(ERR));
+            FD_ZERO(&fds);
+            return;
+        }
+
+        // Check first 11 letters.
+        // If GET http://, continue
+        // Else, stop as the string is bad (this will be changed
+        // later)
+        if(strncmp(buf, "GET http://", 11) != 0)
+        {
+            char ERR[] = "Error: not GET request\n";
+            write(fd, ERR,  strlen(ERR));
+            FD_ZERO(&fds);
+            return;
+        }
+
+        // Initialize the 1st position variable after GET http://
+        // (it will be positioned after the second slash)
+        int pos1 = 11;
+        int proxyPortNum = -1;
+
+        // Initialze the 2nd position variable once either a colon or
+        // forward slash is reached
+        int pos2 = pos1;
+        for(int i=pos2; i<len; i++)
+        {
+            if(buf[i] == ':')
+            {
+                pos2 = i;
+                break;
+            }
+
+            // Error out if we reach this part and haven't found
+            // a colon or we find a slash
+            else if(buf[i] == '/' || i == len-1)
+            {
+                char err[] = "Error: malformed GET requests\n";
+                write(fd, err, strlen(err));
+                FD_ZERO(&fds);
+                return;
+            }
+        }
+
+        // Now that we have positions 1 and 2 of the GET request,
+        // we can set the host name variable and address name
+        // variable
+        //char hostName[pos2-pos1];
+        //for(int i=pos1; i<pos2; i++)
+            //hostName[i-pos1] = buf[i];
+
+        char addrName[pos2-pos1+4];
+        memcpy(addrName, "www.", 4);
+        for(int i=pos1; i<pos2; i++)
+            addrName[i-pos1+4] = buf[i];
+
+        int pos3 = pos2;
+
+        // Get the port number
+        char portStr[pos3-(pos2+1)];
+        for(int i=pos2+1; i<len-1; i++)
+        {
+            if(buf[i] == '/')
+            {
+                pos3 = i;
+                break;
+            }
+
+            // Error out if we reach this part and haven't found
+            // a slash
+            if(i == len-1)
+            {
+                char* err = "Error: malformed GET request\n";
+                write(fd, err,  strlen(err));
+                FD_ZERO(&fds);
+                return;
+            }
+        }
+
+        // Get the port number as a string from the buffer
+        for(int i=pos2+1; i<pos3; i++)
+            portStr[i] = buf[i];
+
+        // Convert the port string to an integer
+        proxyPortNum = atoi(portStr);
+
+        // Get the shortened URL using position 3
+        char shortURL[len-pos3+4];
+        memcpy(shortURL, "GET ", 4);
+        for(int i=pos3; i<len-1; i++)
+            shortURL[i-pos3+4] = buf[i];
+
+        //printf("%s", shortURL);
 
         // first, load up address structs with getaddrinfo():
-
-        memset(&hints, 0, sizeof hints);
+        memset(&hints, 0, sizeof(hints));
         hints.ai_family = AF_UNSPEC;  // use IPv4 or IPv6, whichever
         hints.ai_socktype = SOCK_STREAM;
         hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
 
-        getaddrinfo("www.cs.sonoma.edu", "80", &hints, &res);
+        getaddrinfo(addrName, "80", &hints, &res);
+        //getaddrinfo("www.cs.sonoma.edu", "80", &hints, &res);
 
         // make a socket:
         sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -156,15 +253,18 @@ void handle_connection(int fd)
 
         // Send a message (get)
         // int send(int sockfd, const void *msg, int len, int flags);
+        // GET http://cs.sonoma.edu:3333/index.html HTTP/1.1 Host: cs.sonoma.edu
         // Example input: "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
-        send(sockfd, buf, strlen(buf), 0);
+        send(sockfd, shortURL, strlen(shortURL), 0);
+        //char *msg = "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
+        //len = strlen(msg);
+        //send(sockfd, msg, len, 0);
         recv(sockfd, buf2, sizeof(buf2), 0);
         close(sockfd);
+        //printf("%s", buf2);
         
         write(fd, buf2,  sizeof(buf2));
         FD_ZERO(&fds);
-
-
         
     } while (0);
     return;
