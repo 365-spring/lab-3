@@ -1,0 +1,8 @@
+#!/bin/bash
+
+make clean
+make
+make clean -C ./sample-client-server-ex
+make -C ./sample-client-server-ex
+./proxy
+./sample-client-server-ex/client
