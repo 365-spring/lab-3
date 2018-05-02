@@ -6,267 +6,106 @@
 #include <netdb.h>
 #include <string.h>
 #include <ctype.h>
-#include <getopt.h>
-#include <linux/limits.h>
-#include "http_support.h"
+#include "helper.h"
 
-//
-// Globals and constants
-//
-const struct option long_opts[] = {
-    {"help", no_argument, 0, 'h'},
-    {"verbose", no_argument, 0, 'v'},
-    {"port", required_argument, 0, 'p'},
-    {"root", required_argument, 0, 'r'},
-    {0, 0, 0, 0}
-};
+#define LISTEN_QUEUE 10
 
-const char *opts_desc[] = {
-    ", to display this usage message.",
-    ", for verbose output.",
-    " p1 [p2 p3 ...], to specify one or more ports (default is port " DEFAULT_PORT ").",
-    " path, to specify the server root path (default is " DEFAULT_SERVER_ROOT ").",
-};
-
-//
-// External variables
-//
-extern char *server_root;
-
-//
-// Function prototypes and functions
-//
 void handle_connection(int fd);
 
-void usage(const char* arg)
-{
-    int i;
-    printf("Usage: %s [OPTIONS], where\n", arg);
-    printf("  OPTIONS:\n");
-    for (i = 0; i < sizeof(long_opts) / sizeof(struct option) - 1; i++) {
-        printf("\t-%c, --%s%s\n",
-            long_opts[i].val, long_opts[i].name, opts_desc[i]);
-    }    
-    exit(0);
-}
-
-//
-// Main
-//
 int main(int argc, char *argv[])
 {
-    int i, j, lfd, cfd, pid, rval, verbose, opt, portsiz, lfds_max;
+    int lfd, cfd, pid, rval, timeout;
     struct addrinfo hint, *aip, *rp;
-    fd_set fds, lfds;
+    fd_set fds;
     struct timeval tv;
-    char realroot[PATH_MAX];
-    char **ports = NULL, *tmp = NULL;
 
     // initialize variables
     memset((void *) &hint, 0, sizeof(hint));
-    memset(realroot, 0, sizeof(realroot));
-    server_root = DEFAULT_SERVER_ROOT;    
-    verbose = 0;
-    portsiz = 5;
-    FD_ZERO(&lfds);
-    lfds_max = -1;
 
-    ports = (char **) malloc(portsiz * sizeof(char *));
-    exit_msg(ports == NULL, "malloc() error");
-    for (i = 0; i < portsiz; i++)
-        ports[i] = NULL;
-
-    // parse arguments
-    while( -1 != (opt = getopt_long(argc, argv, "p:r:hv", long_opts, &i)) ) {
-        switch(opt) {
-            case 'p':
-                for (i = 0; i < portsiz; i++) {
-                    if (ports[i] != NULL) continue;
-                    ports[i] = optarg;
-                    break;
-                }
-                if (i == portsiz) {
-                    ports = realloc(ports, (portsiz + 1)*sizeof(char *));
-                    exit_msg(ports == NULL, "realloc() error");
-                    portsiz++;
-                    ports[i] = optarg;
-                }
-                break;
-            case 'r':
-                // do some simple checks on server root
-                server_root = optarg;
-                tmp = realpath(server_root, realroot);
-                exit_msg(tmp == NULL, "-r uses bad path");
-                exit_msg(-1 == access(realroot, R_OK), "-r path unavailable");
-                server_root = realroot;
-                break;
-            case 'h':
-                free(ports);
-                usage(argv[0]);
-                break;
-            case 'v':
-                verbose = 1;
-                break;
-            default:
-                fprintf(stderr, "Invalid option.\n");
-                usage(argv[0]);
-                break;
-        }
-    } // while
-
-    // if no ports were specified, use the default
-    if (ports[0] == NULL) {
-        ports[0] = DEFAULT_PORT;
-    }
+    // hints will help addrinfo to populate addr in a specific way
+    hint.ai_family = AF_UNSPEC;
+    hint.ai_socktype = SOCK_STREAM;   // TCP info
+    hint.ai_flags = AI_PASSIVE;       // use my IP address
     
-    for (i = 0; i < portsiz; i++) {
-        // skip empty entries
-        if (ports[i] == NULL)
+    getaddrinfo(NULL, "8090", &hint, &aip);
+    for (rp = aip; rp != NULL; rp = rp->ai_next) {
+        lfd = socket(rp->ai_family, 
+                     rp->ai_socktype,
+                     rp->ai_protocol);
+        if (lfd == -1)
             continue;
-    
-        // hints will help addrinfo to populate addr in a specific way
-        hint.ai_family = AF_UNSPEC;
-        hint.ai_socktype = SOCK_STREAM;   // TCP info
-        hint.ai_flags = AI_PASSIVE;       // use my IP address
-
-        // getaddrinfo
-        getaddrinfo(NULL, ports[i], &hint, &aip);
-        for (rp = aip; rp != NULL; rp = rp->ai_next) {
-
-            // socket
-            lfd = socket(rp->ai_family, 
-                         rp->ai_socktype,
-                         rp->ai_protocol);
-            if (lfd == -1)
-                continue;
-
-            // setsockopt
-            opt = 1;
-            rval = setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-            exit_msg(rval < 0, "setsockopt() error");
-    
-            // bind
-            if (bind(lfd, rp->ai_addr, rp->ai_addrlen) > -1) {
-                // success -- add bound socket to list of listen fds
-                FD_SET(lfd, &lfds);
-                lfds_max = (lfd + 1 > lfds_max) ? lfd + 1 : lfds_max;
-                break;
-            }
-            close(lfd);
-        }
-        exit_msg(rp == NULL, "could not bind");
-        freeaddrinfo(aip);
+        if (bind(lfd, rp->ai_addr, rp->ai_addrlen) != -1)
+            break; // success!
+        close(lfd);
     }
-    // we are done with these, now
-    free(ports);
+    exit_msg(rp == NULL, "could not bind");
 
-    // listen on all bound sockets
-    for(lfd = 0; lfd < lfds_max; lfd++) {
-        if (FD_ISSET(lfd, &lfds)) {
-            rval = listen(lfd, LISTEN_QUEUE);
-            exit_msg(rval < 0, "listen() error");
-        }
-    }
+    rval = listen(lfd, LISTEN_QUEUE);
+    exit_msg(rval < 0, "listen() error");
 
-    // wait for connection on any of our listen sockets
+    // wait for connection
+    timeout = 0;
     do {
-        // set timeout, for reaping children
-        tv.tv_sec = CLIENT_TIMEOUT;
+        // wait for a connection to be ready
+        FD_ZERO(&fds);
+        FD_SET(lfd, &fds);
+        tv.tv_sec = 10;
         tv.tv_usec = 0;
 
-        // populate fdset for interesting listen fds
-        FD_ZERO(&fds);
-        for(i = 0; i < lfds_max; i++) {
-            if (FD_ISSET(i, &lfds))
-                FD_SET(i, &fds);
-        }
-
-        // wait for a connection to be ready
-        rval = select(lfds_max, &fds, NULL, NULL, &tv);
+        rval = select(lfd+1, &fds, NULL, NULL, &tv);
         exit_msg(rval < 0, "select() error");
-        
-        // do an optimistic reap for children
-        waitpid(-1, NULL, WNOHANG);
 
-        // if we hit a timeout
-        if (rval == 0)
-            continue;
-        
-        // else, must be time to accept one or more connections
-        for(i = 0; i < lfds_max; i++) {
-            if (FD_ISSET(i, &fds)) {
-                cfd = accept(i, NULL, NULL);
-                exit_msg(cfd < 0, "accept() error");
+        if (rval == 0) {
+            timeout++;
+        } else {
+            // accept
+            cfd = accept(lfd, NULL, NULL);
+            exit_msg(cfd < 0, "accept() error");
+            printf("%5d: Accepted connection\n", getpid());
 
-                if ((pid = fork()) == 0) {
-                // in child
-                    // close all the resources we don't need
-                    for (j = 0; j < lfds_max; j++) {
-                        if (FD_ISSET(j, &lfds))
-                            close(j);
-                    }
-                    // now, handle the connection
-                    handle_connection(cfd);
-                    exit(0);
-                    break;
-                }
-                // in parent
-                close(cfd);
+            if ((pid = fork()) == 0) {
+            // in child
+                close(lfd);
+                printf("%5d: Handling connection.\n", getpid());
+                handle_connection(cfd);
+                printf("%5d: Done.\n", getpid());
+                exit(0);
             }
+            // in parent
+            close(cfd);
         }
-    } while (1);
+        waitpid(-1, NULL, WNOHANG);
+    } while (timeout < 5);
 
-    // exiting -- close fds and free resources
-    for(i = 0; i < lfds_max; i++) {
-        if (FD_ISSET(i, &lfds))
-            close(i);
-    }
-    if (verbose) {
-    	fprintf(stderr, "exiting.\n");
-    }
+    printf("%5d: Server Exiting\n", getpid());
+    freeaddrinfo(aip);
     return 0;
 }
 
-// 
-// The function to handle a client connection
-//
 void handle_connection(int fd)
 {
-    http_req req;
-    FILE *rx, *tx;
-
-    exit_msg((fd < 0) || (fd > FD_SETSIZE), "bad fd");
-    
-        // for streams with sockets, need one for read and one for write
-        rx = fdopen(fd, "r");
-        tx = fdopen(dup(fd), "w");
-
-    //while(1)
-    //{
-        
-        init_req(&req);
-        http_get_request(rx, &req);
-        http_process_request(&req);
-        http_response(tx, &req);
-    //}
-
-    shutdown(fileno(rx), SHUT_RDWR);
-    fclose(rx);
-    fclose(tx);
-    free_req(&req);
-
-    return;
-
-    /*int len, i, rval;
+    int len, rval;
     fd_set fds;
     struct timeval tv;
-    char buf[1024];
+    char buf[4096];
 
     exit_msg( (fd < 0) || (fd > FD_SETSIZE), "bad file descriptor");
 
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
+    // Amount of time before connection timeout
+    tv.tv_sec = 30; // In seconds
+    tv.tv_usec = 0; // In microseconds
 
+
+    /*
+    for each line in buffer separated by newline
+        catagorize it as a certain type of header
+        send it if it was catagorized correctly
+        if the catagorization fails
+            the request was a split request
+
+
+
+    */
     // read from client
     do {
         // wait for a read
@@ -280,16 +119,164 @@ void handle_connection(int fd)
             fprintf(stderr, "connection timeout");
             return;
         }
-        
-        // do the read
-        while ((len = read(fd, buf, sizeof(buf))) > 0) {
-            // do work
-            for(i = 0; i < len; i++) {
-                buf[i] = toupper(buf[i]);
-            }
-            write(fd, buf, len);
-        }
-    } while (0);
-    return;*/
-}
 
+        // If the client sends data, read it into the buffer until it
+        // is done
+        if ((len = read(fd, buf, sizeof(buf))) > 0);
+
+        /*
+        http://blue.cs.sonoma.edu:3333
+
+        GET http://www.cs.sonoma.edu/index.html HTTP/1.1
+        Host: blue.cs.sonoma.edu
+
+        GETADDRINFO
+        blue.cs.sonoma.edu & 80 —> IP/port destination
+
+        CONNECT to that destination
+        and then WRITE/SEND it this:
+
+        GET /index.html HTTP/1.1
+        Host: blue.cs.sonoma.edu
+        */
+
+        // String parsing
+
+        struct addrinfo hints, *res;
+        int sockfd;
+        char buf2[2048];
+
+        // Check that our url length is 2048 or lower
+        if(len >= 2048)
+        {
+            char ERR[] = "Request is too long\n";
+            write(fd, ERR,  strlen(ERR));
+            FD_ZERO(&fds);
+            return;
+        }
+
+        // Check first 11 letters.
+        // If GET http://, continue
+        // Else, stop as the string is bad (this will be changed
+        // later)
+        if(strncmp(buf, "GET http://", 11) != 0)
+        {
+            char ERR[] = "Error: not GET request\n";
+            write(fd, ERR,  strlen(ERR));
+            FD_ZERO(&fds);
+            return;
+        }
+
+        // Initialize the 1st position variable after GET http://
+        // (it will be positioned after the second slash)
+        int pos1 = 11;
+        int proxyPortNum = -1;
+
+        // Initialze the 2nd position variable once either a colon or
+        // forward slash is reached
+        int pos2 = pos1;
+        for(int i=pos2; i<len; i++)
+        {
+            if(buf[i] == ':')
+            {
+                pos2 = i;
+                break;
+            }
+
+            // Error out if we reach this part and haven't found
+            // a colon or we find a slash
+            else if(buf[i] == '/' || i == len-1)
+            {
+                char err[] = "Error: malformed GET requests\n";
+                write(fd, err, strlen(err));
+                FD_ZERO(&fds);
+                return;
+            }
+        }
+
+        // Now that we have positions 1 and 2 of the GET request,
+        // we can set the host name variable and address name
+        // variable
+        //char hostName[pos2-pos1];
+        //for(int i=pos1; i<pos2; i++)
+            //hostName[i-pos1] = buf[i];
+
+        char addrName[pos2-pos1+4];
+        memcpy(addrName, "www.", 4);
+        for(int i=pos1; i<pos2; i++)
+            addrName[i-pos1+4] = buf[i];
+
+        int pos3 = pos2;
+
+        // Get the port number
+        char portStr[pos3-(pos2+1)];
+        for(int i=pos2+1; i<len-1; i++)
+        {
+            if(buf[i] == '/')
+            {
+                pos3 = i;
+                break;
+            }
+
+            // Error out if we reach this part and haven't found
+            // a slash
+            if(i == len-1)
+            {
+                char* err = "Error: malformed GET request\n";
+                write(fd, err,  strlen(err));
+                FD_ZERO(&fds);
+                return;
+            }
+        }
+
+        // Get the port number as a string from the buffer
+        for(int i=pos2+1; i<pos3; i++)
+            portStr[i] = buf[i];
+
+        // Convert the port string to an integer
+        proxyPortNum = atoi(portStr);
+
+        // Get the shortened URL using position 3
+        char shortURL[len-pos3+4];
+        memcpy(shortURL, "GET ", 4);
+        for(int i=pos3; i<len-1; i++)
+            shortURL[i-pos3+4] = buf[i];
+
+        //printf("%s", shortURL);
+
+        // first, load up address structs with getaddrinfo():
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_UNSPEC;  // use IPv4 or IPv6, whichever
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
+
+        getaddrinfo(addrName, "80", &hints, &res);
+        //getaddrinfo("www.cs.sonoma.edu", "80", &hints, &res);
+
+        // make a socket:
+        sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+
+        // bind it to the port we passed in to getaddrinfo():
+        bind(sockfd, res->ai_addr, res->ai_addrlen);
+
+        // connect!
+        connect(sockfd, res->ai_addr, res->ai_addrlen);
+
+        // Send a message (get)
+        // int send(int sockfd, const void *msg, int len, int flags);
+        // GET http://cs.sonoma.edu:3333/index.html HTTP/1.1 Host: cs.sonoma.edu
+        // Example input: "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
+        send(sockfd, shortURL, strlen(shortURL), 0);
+        //char *msg = "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
+        //len = strlen(msg);
+        //send(sockfd, msg, len, 0);
+        recv(sockfd, buf2, sizeof(buf2), 0);
+        close(sockfd);
+        //printf("%s", buf2);
+        
+        write(fd, buf2,  sizeof(buf2));
+        FD_ZERO(&fds);
+        
+    } while (0);
+    return;
+}
