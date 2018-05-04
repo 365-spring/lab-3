@@ -87,7 +87,7 @@ void handle_connection(int fd)
     int len, rval;
     fd_set fds;
     struct timeval tv;
-    char buf[4096];
+    char readBuf[2048];
 
     exit_msg( (fd < 0) || (fd > FD_SETSIZE), "bad file descriptor");
 
@@ -111,8 +111,10 @@ void handle_connection(int fd)
 
         // If the client sends data, read it into the buffer until it
         // is done
-        if ((len = read(fd, buf, sizeof(buf))) > 0);
+        if ((len = read(fd, readBuf, sizeof(readBuf))) > 0);
 
+        char request[len];
+        
         /*
         http://blue.cs.sonoma.edu:3333
 
@@ -148,7 +150,7 @@ void handle_connection(int fd)
         // If GET http://, continue
         // Else, stop as the string is bad (this will be changed
         // later)
-        if(strncmp(buf, "GET http://", 11) != 0)
+        if(strncmp(readBuf, "GET http://", 11) != 0)
         {
             char ERR[] = "Error: not GET request\n";
             write(fd, ERR,  strlen(ERR));
@@ -166,7 +168,7 @@ void handle_connection(int fd)
         int pos2 = pos1;
         for(int i=pos2; i<len; i++)
         {
-            if(buf[i] == ':')
+            if(readBuf[i] == ':')
             {
                 pos2 = i;
                 break;
@@ -174,7 +176,7 @@ void handle_connection(int fd)
 
             // Error out if we reach this part and haven't found
             // a colon or we find a slash
-            else if(buf[i] == '/' || i == len-1)
+            else if(readBuf[i] == '/' || i == len-1)
             {
                 char err[] = "Error: malformed GET requests\n";
                 write(fd, err, strlen(err));
@@ -188,12 +190,19 @@ void handle_connection(int fd)
         // variable
         //char hostName[pos2-pos1];
         //for(int i=pos1; i<pos2; i++)
-            //hostName[i-pos1] = buf[i];
+            //hostName[i-pos1] = request[i];
 
-        char addrName[pos2-pos1+4];
-        memcpy(addrName, "www.", 4);
+        char addrName[pos2-pos1+4+1];
+        //for(int i=0; i<pos2-pos1; i++)
+            //addrName[i] = 'a';
+        addrName[0] = 'w';
+        addrName[1] = 'w';
+        addrName[2] = 'w';
+        addrName[3] = '.';
+        //memcpy(addrName, "www.", 4);
         for(int i=pos1; i<pos2; i++)
-            addrName[i-pos1+4] = buf[i];
+            addrName[i-pos1+4] = readBuf[i];
+        addrName[pos2-pos1+4] = '\0';
 
         int pos3 = pos2;
 
@@ -201,7 +210,7 @@ void handle_connection(int fd)
         char portStr[pos3-(pos2+1)];
         for(int i=pos2+1; i<len-1; i++)
         {
-            if(buf[i] == '/')
+            if(readBuf[i] == '/')
             {
                 pos3 = i;
                 break;
@@ -220,18 +229,27 @@ void handle_connection(int fd)
 
         // Get the port number as a string from the buffer
         for(int i=pos2+1; i<pos3; i++)
-            portStr[i] = buf[i];
+            portStr[i] = readBuf[i];
 
         // Convert the port string to an integer
         proxyPortNum = atoi(portStr);
 
         // Get the shortened URL using position 3
-        char shortURL[len-pos3+4];
-        memcpy(shortURL, "GET ", 4);
-        for(int i=pos3; i<len-1; i++)
-            shortURL[i-pos3+4] = buf[i];
+        char shortURL[len-pos3+1+4-1];
+        
+        for (int i=0; i<len-pos3+1+4-1; i++)
+        {
+            shortURL[i] = 'a';
+        }
 
-        //printf("%s", shortURL);
+        shortURL[0] = 'G';
+        shortURL[1] = 'E';
+        shortURL[2] = 'T';
+        shortURL[3] = ' ';
+
+        for (int i=pos3; i<len-1; i++)
+            shortURL[i-pos3+4] = readBuf[i];
+        shortURL[len-pos3+4-1] = '\0';    
 
         // first, load up address structs with getaddrinfo():
         memset(&hints, 0, sizeof(hints));
@@ -255,13 +273,11 @@ void handle_connection(int fd)
         // int send(int sockfd, const void *msg, int len, int flags);
         // GET http://cs.sonoma.edu:3333/index.html HTTP/1.1 Host: cs.sonoma.edu
         // Example input: "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
+
         send(sockfd, shortURL, strlen(shortURL), 0);
         //char *msg = "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
-        //len = strlen(msg);
-        //send(sockfd, msg, len, 0);
         recv(sockfd, buf2, sizeof(buf2), 0);
         close(sockfd);
-        //printf("%s", buf2);
         
         write(fd, buf2,  sizeof(buf2));
         FD_ZERO(&fds);
