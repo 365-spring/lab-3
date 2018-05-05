@@ -7,6 +7,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "helper.h"
+#include "binary_file_image_recognizer.h"
 
 #define LISTEN_QUEUE 10
 
@@ -28,7 +29,7 @@ int main(int argc, char *argv[])
     hint.ai_socktype = SOCK_STREAM;   // TCP info
     hint.ai_flags = AI_PASSIVE;       // use my IP address
     
-    getaddrinfo(NULL, "3128", &hint, &aip);
+    getaddrinfo(NULL, "8091", &hint, &aip);
     for (rp = aip; rp != NULL; rp = rp->ai_next) {
         lfd = socket(rp->ai_family, 
                      rp->ai_socktype,
