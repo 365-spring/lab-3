@@ -10,7 +10,7 @@
 
 #define LISTEN_QUEUE 10
 
-void handle_connection(int fd);
+void handle_connection(int fd, int argc, char *argv[]);
 
 int main(int argc, char *argv[])
 {
@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
     struct addrinfo hint, *aip, *rp;
     fd_set fds;
     struct timeval tv;
+
 
     // initialize variables
     memset((void *) &hint, 0, sizeof(hint));
@@ -67,7 +68,7 @@ int main(int argc, char *argv[])
             // in child
                 close(lfd);
                 printf("%5d: Handling connection.\n", getpid());
-                handle_connection(cfd);
+                handle_connection(cfd, argc, argv);
                 printf("%5d: Done.\n", getpid());
                 exit(0);
             }
@@ -82,23 +83,23 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void handle_connection(int fd)
+void handle_connection(int fd, int argc, char *argv[])
 {
     int len, rval;
     fd_set fds;
     struct timeval tv;
     char buf[1024];
-    char webPort = "www.blue.cs.sonoma.edu";
+    char* webPort = "www.blue.cs.sonoma.edu";
 
     exit_msg( (fd < 0) || (fd > FD_SETSIZE), "bad file descriptor");
 
-    tv.tv_sec = 6000;
+    tv.tv_sec = 30;
     tv.tv_usec = 0;
 
     // read from client
     struct addrinfo hints, *res;
     int sockfd;
-    char buf2[2048];
+    char buf2[1024];
 
     // wait for a read
     FD_ZERO(&fds);
