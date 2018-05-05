@@ -88,6 +88,7 @@ void handle_connection(int fd)
     fd_set fds;
     struct timeval tv;
     char buf[1024];
+    char webPort = "www.blue.cs.sonoma.edu";
 
     exit_msg( (fd < 0) || (fd > FD_SETSIZE), "bad file descriptor");
 
@@ -112,7 +113,10 @@ void handle_connection(int fd)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;     // fill in my IP for me
 
-    getaddrinfo("www.blue.cs.sonoma.edu", "8090", &hints, &res);
+    if(argc <= 1)
+        getaddrinfo(webPort, "8090", &hints, &res);
+    else
+        getaddrinfo(webPort, argv[1], &hints, &res);
 
     // make a socket:
     sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
@@ -136,7 +140,13 @@ void handle_connection(int fd)
         // Example input: "GET /index.html HTTP/1.1 Host: cs.sonoma.edu";
 
         printf("Bytes sent = %ld\n", send(sockfd, buf, sizeof(buf), 0));
-        printf("Received? %ld\n", recv(sockfd, buf2, sizeof(buf2), 0));
+
+        int isReceived = recv(sockfd, buf2, sizeof(buf2), 0);
+
+        if(isReceived == -1)
+            printf("Message was not sent");
+        else
+            printf("Message was sent");
         
         
         write(fd, buf2,  sizeof(buf2));
