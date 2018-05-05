@@ -96,16 +96,7 @@ void handle_connection(int fd)
     tv.tv_usec = 0; // In microseconds
 
 
-    /*
-    for each line in buffer separated by newline
-        catagorize it as a certain type of header
-        send it if it was catagorized correctly
-        if the catagorization fails
-            the request was a split request
-
-
-
-    */
+    
     // read from client
     do {
         // wait for a read
@@ -123,7 +114,14 @@ void handle_connection(int fd)
         // If the client sends data, read it into the buffer until it
         // is done
         if ((len = read(fd, buf, sizeof(buf))) > 0);
+        // reading in the request
 
+        /*
+        from i = 0 to len(request)
+        fill up buffer
+        send buffer
+        i += 1024
+        */
         /*
         http://blue.cs.sonoma.edu:3333
 
